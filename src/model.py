@@ -357,7 +357,8 @@ class RWKV(pl.LightningModule):
             for block_idx, block in enumerate(self.blocks):
                 if args.grad_cp == 1:
                     # Note: Checkpointing with recursive steps might need careful verification.
-                    current_input, current_v_first = deepspeed.checkpointing.checkpoint(block, current_input, current_v_first)
+                    # Add use_reentrant=False here
+                    current_input, current_v_first = deepspeed.checkpointing.checkpoint(block, current_input, current_v_first, use_reentrant=False)
                 else:
                     current_input, current_v_first = block(current_input, current_v_first)
             
