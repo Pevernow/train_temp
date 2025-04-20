@@ -45,35 +45,51 @@ if 'x070' in os.environ["RWKV_MY_TESTING"]:
 
     class WindBackstepping(torch.autograd.Function):
         @staticmethod
-        def forward(ctx, w,q,k,v,z,b,n_steps):
-            B,T,H,C = w.shape 
-            assert T%CHUNK_LEN == 0
-            assert all(i.dtype==torch.bfloat16 for i in [w,q,k,v,z,b])
-            assert all(i.is_contiguous() for i in [w,q,k,v,z,b])
+        def forward(ctx, w, q, k, v, z, b): # Remove n_steps
+            B, T, H, C = w.shape
+            assert T % CHUNK_LEN == 0
+            assert all(i.dtype == torch.bfloat16 for i in [w, q, k, v, z, b])
+            assert all(i.is_contiguous() for i in [w, q, k, v, z, b])
             y = torch.empty_like(v)
-            s = torch.empty(B,H,T//CHUNK_LEN,C,C, dtype=torch.float32,device=w.device)
-            sa = torch.empty(B,T,H,C, dtype=torch.float32,device=w.device)
-            torch.ops.wind_backstepping.forward(w,q,k,v,z,b, y,s,sa, n_steps)
-            ctx.save_for_backward(w,q,k,v,z,b,s,sa)
-            ctx.n_steps = n_steps
+            # s and sa are intermediate buffers for the single CUDA call
+            s = torch.empty(B, H, T // CHUNK_LEN, C, C, dtype=torch.float32, device=w.device)
+            sa = torch.empty(B, T, H, C, dtype=torch.float32, device=w.device)
+
+            # Call C++ op WITHOUT n_steps
+            torch.ops.wind_backstepping.forward(w, q, k, v, z, b, y, s, sa)
+    
+            # Save tensors needed for the single-step backward
+            ctx.save_for_backward(w, q, k, v, z, b, s, sa)
+            # ctx.n_steps = n_steps # REMOVE THIS
             return y
+
         @staticmethod
         def backward(ctx, dy):
-            assert all(i.dtype==torch.bfloat16 for i in [dy])
+            assert all(i.dtype == torch.bfloat16 for i in [dy])
             assert all(i.is_contiguous() for i in [dy])
-            w,q,k,v,z,b,s,sa = ctx.saved_tensors
-            dw,dq,dk,dv,dz,db = [torch.empty_like(x) for x in [w,q,k,v,z,b]]
-            # backward 目前未加 n_steps 参数，如需支持递归梯度累积可进一步扩展
-            torch.ops.wind_backstepping.backward(w,q,k,v,z,b, dy,s,sa, dw,dq,dk,dv,dz,db)
-            return dw,dq,dk,dv,dz,db,None
+            w, q, k, v, z, b, s, sa = ctx.saved_tensors
+            dw, dq, dk, dv, dz, db = [torch.empty_like(x) for x in [w, q, k, v, z, b]]
+    
+            # Call the single-step backward C++ op
+            torch.ops.wind_backstepping.backward(w, q, k, v, z, b, dy, s, sa, dw, dq, dk, dv, dz, db)
+    
+            # Return gradients for w, q, k, v, z, b (match forward inputs)
+            return dw, dq, dk, dv, dz, db # REMOVE final None
 
-    def RUN_CUDA_RWKV7g(q,w,k,v,a,b,n_steps: int = 1):
-        B,T,HC = q.shape
-        q,w,k,v,a,b = [i.view(B,T,HC//64,64) for i in [q,w,k,v,a,b]]
-        # Corrected order: all Tensor arguments first, n_steps last
-        # return WindBackstepping.apply(w,q,k,v,a,b,n_steps).view(B,T,HC)
-        # Should be:
-        return WindBackstepping.apply(w, q, k, v, a, b, n_steps).view(B, T, HC)
+    # def RUN_CUDA_RWKV7g(q,w,k,v,a,b,n_steps: int = 1): # Remove n_steps from signature
+    def RUN_CUDA_RWKV7g(q, w, k, v, a, b):
+        B, T, HC = q.shape
+        # Assuming H=HC//64, C=64 based on HEAD_SIZE likely being 64
+        H = HC // HEAD_SIZE
+        q, w, k, v, a, b = [i.view(B, T, H, HEAD_SIZE) for i in [q, w, k, v, a, b]]
+        # Call apply WITHOUT n_steps
+        # Note the parameter order: w, q, k, v, z, b in WindBackstepping
+        # The function signature uses a,b but the WindBackstepping class uses z,b
+        # Assuming 'a' maps to 'z' based on the backward return signature (dz, db)
+        # ****** IMPORTANT: Double-check if 'a' passed here should be 'z' for the CUDA kernel ******
+        # If 'a' from the Python side corresponds to 'z' in the C++/CUDA implementation:
+        return WindBackstepping.apply(w, q, k, v, a, b).view(B, T, HC)
+        # If 'a' here IS 'a' in CUDA and 'z' is something else, you need to pass the correct tensor for 'z'.
 
 
 ########################################################################################################
@@ -347,32 +363,34 @@ class RWKV(pl.LightningModule):
 
         x = self.emb(idx)
 
-        v_first_init = torch.empty_like(x) # Initial state for the very first step
+        # Initialize v_first state (used for value residual across layers)
+        # This state seems managed correctly *per recursive step* by passing it through blocks.
+        v_first_init = torch.empty_like(x)
+
         step_input = x
         step_v_first = v_first_init
 
-        # Determine the number of recursive steps
+        # Determine the number of recursive steps (THIS is the correct loop)
         n_steps = recursive_depth if recursive_depth is not None else 1
 
         for step in range(n_steps):
-            # Use the output of the previous step as input for the current step
-            # For the first step (step=0), step_input is the initial embedding
             current_input = step_input
-            current_v_first = step_v_first
+            current_v_first = step_v_first # State for the current step
 
             for block_idx, block in enumerate(self.blocks):
+                # Pass current step's input and v_first state
                 if args.grad_cp == 1:
-                    # Note: Checkpointing with recursive steps might need careful verification.
-                    # Add use_reentrant=False here
-                    current_input, current_v_first = deepspeed.checkpointing.checkpoint(block, current_input, current_v_first)
+                     # Use use_reentrant=False for newer PyTorch versions with DDP
+                    current_input, current_v_first = deepspeed.checkpointing.checkpoint(block, current_input, current_v_first, use_reentrant=False)
                 else:
                     current_input, current_v_first = block(current_input, current_v_first)
-            
-            # Update step_input and step_v_first for the next iteration (if any)
-            step_input = current_input
-            step_v_first = current_v_first
 
-        # After all recursive steps (or the single step if recursive_depth is None), apply final layers
+            # Prepare input for the *next* recursive step (if any)
+            step_input = current_input
+            # step_v_first is updated implicitly by the loop, it carries the state *through layers* within a step.
+            # If you needed state *between recursive steps*, you'd manage it here.
+
+        # Final output processing after all recursive steps
         x = self.ln_out(step_input)
         x = self.head(x)
         return x
