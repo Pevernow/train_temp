@@ -67,7 +67,7 @@ if 'x070' in os.environ["RWKV_MY_TESTING"]:
             torch.ops.wind_backstepping.backward(w,q,k,v,z,b, dy,s,sa, dw,dq,dk,dv,dz,db)
             return dw,dq,dk,dv,dz,db,None
 
-    def RUN_CUDA_RWKV7g(q,w,k,v,a,b,n_steps=1):
+    def RUN_CUDA_RWKV7g(q,w,k,v,a,b,n_steps: int = 1):
         B,T,HC = q.shape
         q,w,k,v,a,b = [i.view(B,T,HC//64,64) for i in [q,w,k,v,a,b]]
         return WindBackstepping.apply(w,q,k,v,a,b,n_steps).view(B,T,HC)
