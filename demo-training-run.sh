@@ -25,10 +25,10 @@ PROJ_DIR="out/L"$N_LAYER"-D"$N_EMBD"-"$MODEL_TYPE # set output folder
 # Larger model => use smaller LR
 # Finetuning => use very small LR, such as 1e-5
 #
-M_BSZ="16" # takes ~9G VRAM here => reduce this to save VRAM, increase this for faster speed
+M_BSZ="1" # takes ~9G VRAM here => reduce this to save VRAM, increase this for faster speed
 LR_INIT="6e-4"
 LR_FINAL="6e-5"
-GRAD_CP=1 # 1 => slower, save VRAM; 0 => faster, more VRAM
+GRAD_CP=0 # 1 => slower, save VRAM; 0 => faster, more VRAM
 EPOCH_SAVE=10 # save every 10 "miniepochs" (1 miniepoch = 40320 * ctx_len tokens) => decrease if your GPU is weak
 #
 #######################################################################################################################
@@ -48,4 +48,4 @@ python train.py --load_model "0" --wandb "Test" --proj_dir $PROJ_DIR --my_testin
  --lr_init $LR_INIT --lr_final $LR_FINAL --warmup_steps 10 --beta1 0.9 --beta2 0.99 --adam_eps 1e-18 --data_type "binidx" --vocab_size 65536 \
  --weight_decay 0.001 --epoch_save $EPOCH_SAVE --head_size 64 \
  --accelerator gpu --devices $GPU_PER_NODE --precision bf16 --strategy deepspeed_stage_2 --grad_cp $GRAD_CP --enable_progress_bar True --ds_bucket_mb $DS_BUCKET_MB \
- --train_depth 1 --eval_depths 1
+ --train_depth 5 --eval_depths 5
