@@ -70,7 +70,11 @@ if 'x070' in os.environ["RWKV_MY_TESTING"]:
     def RUN_CUDA_RWKV7g(q,w,k,v,a,b,n_steps: int = 1):
         B,T,HC = q.shape
         q,w,k,v,a,b = [i.view(B,T,HC//64,64) for i in [q,w,k,v,a,b]]
-        return WindBackstepping.apply(w,q,k,v,a,b,n_steps).view(B,T,HC)
+        # Corrected order: all Tensor arguments first, n_steps last
+        # return WindBackstepping.apply(w,q,k,v,a,b,n_steps).view(B,T,HC)
+        # Should be:
+        return WindBackstepping.apply(w, q, k, v, a, b, n_steps).view(B, T, HC)
+
 
 ########################################################################################################
 
