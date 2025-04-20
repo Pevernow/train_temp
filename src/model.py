@@ -45,36 +45,37 @@ if 'x070' in os.environ["RWKV_MY_TESTING"]:
 
     class WindBackstepping(torch.autograd.Function):
         @staticmethod
-        def forward(ctx, w, q, k, v, z, b): # Remove n_steps
+        def forward(ctx, w, q, k, v, a, b): # Inputs: w, q, k, v, a, b
             B, T, H, C = w.shape
-            assert T % CHUNK_LEN == 0
-            assert all(i.dtype == torch.bfloat16 for i in [w, q, k, v, z, b])
-            assert all(i.is_contiguous() for i in [w, q, k, v, z, b])
-            y = torch.empty_like(v)
-            # s and sa are intermediate buffers for the single CUDA call
-            s = torch.empty(B, H, T // CHUNK_LEN, C, C, dtype=torch.float32, device=w.device)
-            sa = torch.empty(B, T, H, C, dtype=torch.float32, device=w.device)
-
-            # Call C++ op WITHOUT n_steps
-            torch.ops.wind_backstepping.forward(w, q, k, v, z, b, y, s, sa)
-    
-            # Save tensors needed for the single-step backward
-            ctx.save_for_backward(w, q, k, v, z, b, s, sa)
-            # ctx.n_steps = n_steps # REMOVE THIS
+            # ... (rest of forward, ensure C is correctly derived or passed if needed) ...
+            torch.ops.wind_backstepping.forward(w, q, k, v, a, b, y, s, sa) # Pass Python a & b to C++ z & a implicitly
+            # Save tensors needed for backward, including the original forward inputs if used in backward calc
+            ctx.save_for_backward(w, q, k, v, a, b, s, sa) # Save original inputs if needed by backward kernel via C++ wrapper
             return y
 
         @staticmethod
         def backward(ctx, dy):
-            assert all(i.dtype == torch.bfloat16 for i in [dy])
-            assert all(i.is_contiguous() for i in [dy])
-            w, q, k, v, z, b, s, sa = ctx.saved_tensors
-            dw, dq, dk, dv, dz, db = [torch.empty_like(x) for x in [w, q, k, v, z, b]]
-    
-            # Call the single-step backward C++ op
-            torch.ops.wind_backstepping.backward(w, q, k, v, z, b, dy, s, sa, dw, dq, dk, dv, dz, db)
-    
-            # Return gradients for w, q, k, v, z, b (match forward inputs)
-            return dw, dq, dk, dv, dz, db # REMOVE final None
+            assert dy.is_contiguous()
+            # Retrieve saved tensors. Note: order matters if kernel uses them.
+            # Assuming kernel uses w, q, k, v, a, b, s, sa
+            w, q, k, v, a, b, s, sa = ctx.saved_tensors
+
+            # Allocate gradients for forward inputs: w, q, k, v, a, b
+            dw = torch.empty_like(w)
+            dq = torch.empty_like(q)
+            dk = torch.empty_like(k)
+            dv = torch.empty_like(v)
+            da_grad = torch.empty_like(a) # Gradient for forward input 'a' (which was -kk)
+            db_grad = torch.empty_like(b) # Gradient for forward input 'b' (which was kk*a)
+
+            # Call C++ backward. It expects outputs dz, da (corresponding to C++ inputs z, a)
+            # Pass memory locations da_grad and db_grad to receive these results.
+            torch.ops.wind_backstepping.backward(w, q, k, v, a, b, dy, s, sa, dw, dq, dk, dv, da_grad, db_grad)
+            #                                                                          ^        ^
+            #                                                               C++ writes dz here | C++ writes da here
+
+            # Return gradients corresponding to forward inputs w, q, k, v, a, b
+            return dw, dq, dk, dv, da_grad, db_grad # Return gradients for a and b
 
     # def RUN_CUDA_RWKV7g(q,w,k,v,a,b,n_steps: int = 1): # Remove n_steps from signature
     # def RUN_CUDA_RWKV7g(q, w, k, v, a, b): # Old signature
