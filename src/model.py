@@ -77,19 +77,18 @@ if 'x070' in os.environ["RWKV_MY_TESTING"]:
             return dw, dq, dk, dv, dz, db # REMOVE final None
 
     # def RUN_CUDA_RWKV7g(q,w,k,v,a,b,n_steps: int = 1): # Remove n_steps from signature
-    def RUN_CUDA_RWKV7g(q, w, k, v, a, b):
+    # def RUN_CUDA_RWKV7g(q, w, k, v, a, b): # Old signature
+    def RUN_CUDA_RWKV7g(q, w, k, v, a, b, head_size: int): # Add head_size parameter
         B, T, HC = q.shape
-        # Assuming H=HC//64, C=64 based on HEAD_SIZE likely being 64
-        H = HC // HEAD_SIZE
-        q, w, k, v, a, b = [i.view(B, T, H, HEAD_SIZE) for i in [q, w, k, v, a, b]]
-        # Call apply WITHOUT n_steps
-        # Note the parameter order: w, q, k, v, z, b in WindBackstepping
-        # The function signature uses a,b but the WindBackstepping class uses z,b
-        # Assuming 'a' maps to 'z' based on the backward return signature (dz, db)
-        # ****** IMPORTANT: Double-check if 'a' passed here should be 'z' for the CUDA kernel ******
-        # If 'a' from the Python side corresponds to 'z' in the C++/CUDA implementation:
+        # Use the passed argument instead of the global variable
+        H = HC // head_size
+        # Calculate C using the passed argument as well
+        C = head_size
+        q, w, k, v, a, b = [i.view(B, T, H, C) for i in [q, w, k, v, a, b]] # Use local H and C
+
+        # Assuming the parameter mapping a->z, b->b is correct for WindBackstepping
+        # ****** Double-check this mapping based on your CUDA kernel's actual inputs ******
         return WindBackstepping.apply(w, q, k, v, a, b).view(B, T, HC)
-        # If 'a' here IS 'a' in CUDA and 'z' is something else, you need to pass the correct tensor for 'z'.
 
 
 ########################################################################################################
@@ -203,9 +202,14 @@ class RWKV_Tmix_x070(MyModule):
         kk = F.normalize(kk.view(B,T,H,-1), dim=-1, p=2.0).view(B,T,C)
         k = k * (1 + (a-1) * self.k_a)
 
-        x = RUN_CUDA_RWKV7g(r, w, k, v, -kk, kk*a)
+        # Pass self.head_size when calling RUN_CUDA_RWKV7g
+        x = RUN_CUDA_RWKV7g(r, w, k, v, -kk, kk*a, self.head_size) # Pass head_size here
+
+        # Make sure C used here is consistent (it comes from x.size() initially)
         x = self.ln_x(x.view(B * T, C)).view(B, T, C)
 
+        # Original code used H and implicitly HEAD_SIZE/N here. Ensure consistency.
+        # N = self.head_size # Should be consistent
         x = x + ((r.view(B,T,H,-1)*k.view(B,T,H,-1)*self.r_k).sum(dim=-1, keepdim=True) * v.view(B,T,H,-1)).view(B,T,C)
         x = self.output(x * g)
         return x, v_first
