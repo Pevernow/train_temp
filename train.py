@@ -55,6 +55,7 @@ if __name__ == "__main__":
     parser.add_argument("--my_testing", default='x070', type=str)
     parser.add_argument("--my_exit_tokens", default=0, type=int)
     parser.add_argument("--eval_depths", nargs='+', type=int, default=[1], help='List of recursive depths to evaluate during validation.') # New argument
+    parser.add_argument("--train_depth", default=1, type=int, help='Recursive depth to use during training.') # New argument for training depth
 
     parser = Trainer.add_argparse_args(parser)
     args = parser.parse_args()

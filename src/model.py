@@ -372,7 +372,10 @@ class RWKV(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         idx, targets = batch
-        logits = self(idx)
+        # Get training depth from args, default to 1 if not specified
+        # Note: You'll need to add 'train_depth' to argparse in train.py if you want this configurable
+        train_depth = getattr(self.args, 'train_depth', 1)
+        logits = self(idx, recursive_depth=train_depth) # Pass recursive_depth
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
         return L2Wrap.apply(loss, logits)
 
