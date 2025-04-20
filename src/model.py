@@ -67,13 +67,14 @@ if 'x070' in os.environ["RWKV_MY_TESTING"]:
             torch.ops.wind_backstepping.backward(w,q,k,v,z,b, dy,s,sa, dw,dq,dk,dv,dz,db)
             return dw,dq,dk,dv,dz,db,None
 
-    def RUN_CUDA_RWKV7g(q,w,k,v,a,b,n_steps: int = 1):
+    def RUN_CUDA_RWKV7g(q,w,k,v,z,a,b,n_steps: int = 1):
         B,T,HC = q.shape
-        q,w,k,v,a,b = [i.view(B,T,HC//64,64) for i in [q,w,k,v,a,b]]
-        # Corrected order: all Tensor arguments first, n_steps last
-        # return WindBackstepping.apply(w,q,k,v,a,b,n_steps).view(B,T,HC)
-        # Should be:
-        return WindBackstepping.apply(w, q, k, v, a, b, n_steps).view(B, T, HC)
+        q,w,k,v,z,a,b = [i.view(B,T,HC//64,64) for i in [q,w,k,v,z,a,b]]
+        y = torch.empty_like(v)
+        s = torch.empty(B, q.shape[2], T//16, 64, 64, dtype=torch.float32, device=q.device)
+        sa = torch.empty(B, T, q.shape[2], 64, dtype=torch.float32, device=q.device)
+        WindBackstepping.apply(w, q, k, v, z, a, b, y, s, sa, n_steps)
+        return y.view(B, T, HC)
 
 
 ########################################################################################################
