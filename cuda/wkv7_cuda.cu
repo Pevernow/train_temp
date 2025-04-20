@@ -129,8 +129,8 @@ __global__ void backward_kernel(int T, int H, F_ w_, F_ q_, F_ k_, F_ v_, F_ a_,
     }
 }
 
-void cuda_forward(int B, int T, int H, int n_steps, bf*w, bf*q, bf*k, bf*v, bf*z, bf*a, bf*b, bf*y, float*s, float*sa) {
-    for(int step=0; step<n_steps; ++step){
+void cuda_forward(int B, int T, int H, int64_t n_steps, bf*w, bf*q, bf*k, bf*v, bf*z, bf*a, bf*b, bf*y, float*s, float*sa) {
+    for(int64_t step=0; step<n_steps; ++step){
         forward_kernel<<<dim3(H,B), dim3(_C_)>>>(T,H,n_steps,w,q,k,v,z,a,b,y,s,sa);
     }
 }
