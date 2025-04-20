@@ -2,9 +2,9 @@
 #include <cuda_bf16.h>
 using bf = __nv_bfloat16;
 
-void cuda_forward(int B, int T, int H, int n_steps, bf*w, bf*q, bf*k, bf*v, bf*z, bf*a, bf*b, bf*y, float*s, float*sa);
+void cuda_forward(int B, int T, int H, int64_t n_steps, bf*w, bf*q, bf*k, bf*v, bf*z, bf*a, bf*b, bf*y, float*s, float*sa);
 
-void forward(torch::Tensor &w, torch::Tensor &q, torch::Tensor &k, torch::Tensor &v, torch::Tensor &z, torch::Tensor &a, torch::Tensor &b, torch::Tensor &y, torch::Tensor &s, torch::Tensor &sa, int n_steps) {
+void forward(torch::Tensor &w, torch::Tensor &q, torch::Tensor &k, torch::Tensor &v, torch::Tensor &z, torch::Tensor &a, torch::Tensor &b, torch::Tensor &y, torch::Tensor &s, torch::Tensor &sa, int64_t n_steps) {
     int B = w.sizes()[0], T = w.sizes()[1], H = w.sizes()[2];
     cuda_forward(B, T, H, n_steps, (bf*)w.data_ptr(), (bf*)q.data_ptr(), (bf*)k.data_ptr(), (bf*)v.data_ptr(), (bf*)z.data_ptr(), (bf*)a.data_ptr(), (bf*)b.data_ptr(), (bf*)y.data_ptr(), (float*)s.data_ptr(), (float*)sa.data_ptr());
 }
@@ -19,7 +19,7 @@ void backward(torch::Tensor &w, torch::Tensor &q, torch::Tensor &k, torch::Tenso
 }
 
 TORCH_LIBRARY(wind_backstepping, m) {
-    m.def("forward(Tensor w, Tensor q, Tensor k, Tensor v, Tensor z, Tensor a, Tensor b, Tensor(a!) y, Tensor(b!) s, Tensor(c!) sa, int n_steps) -> ()");
+    m.def("forward(Tensor w, Tensor q, Tensor k, Tensor v, Tensor z, Tensor a, Tensor b, Tensor(a!) y, Tensor(b!) s, Tensor(c!) sa, int64_t n_steps) -> ()");
     m.def("backward(Tensor w, Tensor q, Tensor k, Tensor v, Tensor z, Tensor a, Tensor dy, Tensor s, Tensor sa, Tensor(a!) dw, Tensor(b!) dq, Tensor(c!) dk, Tensor(d!) dv, Tensor(e!) dz, Tensor(f!) da) -> ()");
 }
 
