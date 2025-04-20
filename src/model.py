@@ -240,7 +240,7 @@ class RWKV_Tmix_x070(MyModule):
     
 ########################################################################################################
 
-class RWKV_CMix_x070(MyModule):
+class RWKV_CMix_x070(nn.Module):
     def __init__(self, args, layer_id):
         super().__init__()
         self.args = args
@@ -260,7 +260,7 @@ class RWKV_CMix_x070(MyModule):
         self.key.weight.data.uniform_(-0.5/(args.n_embd**0.5), 0.5/(args.n_embd**0.5))
         self.value.weight.data.zero_()
 
-    @MyFunction
+    # @MyFunction
     def forward(self, x):
         xx = self.time_shift(x) - x
         
