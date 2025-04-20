@@ -7,7 +7,7 @@ __device__ inline bf to_bf(const float & u) { return __float2bfloat16_rn(u); }
 
 typedef bf * __restrict__ F_;
 
-__global__ void forward_kernel(int T, int H, int n_steps, F_ w_, F_ q_, F_ k_, F_ v_, F_ z_, F_ a_, bf* y_, float* s_, float* sa_) {
+__global__ void forward_kernel(int T, int H, int n_steps, F_ w_, F_ q_, F_ k_, F_ v_, F_ z_, F_ a_, F_ b_, bf* y_, float* s_, float* sa_) {
     constexpr int C = _C_;
     int bb = blockIdx.y, hh = blockIdx.x, i = threadIdx.x;
 
@@ -129,9 +129,9 @@ __global__ void backward_kernel(int T, int H, F_ w_, F_ q_, F_ k_, F_ v_, F_ a_,
     }
 }
 
-void cuda_forward(int B, int T, int H, int n_steps, bf*w, bf*q, bf*k, bf*v, bf*z, bf*a, bf*y, float*s, float*sa) {
+void cuda_forward(int B, int T, int H, int n_steps, bf*w, bf*q, bf*k, bf*v, bf*z, bf*a, bf*b, bf*y, float*s, float*sa) {
     for(int step=0; step<n_steps; ++step){
-        forward_kernel<<<dim3(H,B), dim3(_C_)>>>(T,H,n_steps,w,q,k,v,z,a,y,s,sa);
+        forward_kernel<<<dim3(H,B), dim3(_C_)>>>(T,H,n_steps,w,q,k,v,z,a,b,y,s,sa);
     }
 }
 void cuda_backward(int B, int T, int H, bf*w, bf*q, bf*k, bf*v, bf*z, bf*a, bf*dy, float*s, float*sa, bf*dw, bf*dq, bf*dk, bf*dv, bf*dz, bf*da) {
