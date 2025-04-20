@@ -45,13 +45,36 @@ if 'x070' in os.environ["RWKV_MY_TESTING"]:
 
     class WindBackstepping(torch.autograd.Function):
         @staticmethod
-        def forward(ctx, w, q, k, v, a, b): # Inputs: w, q, k, v, a, b
+        def forward(ctx, w, q, k, v, a, b): # Python Function inputs (from .apply call)
+            # Input shapes: w, q, k, v, a, b typically (B, T, H, C) where C=HEAD_SIZE
             B, T, H, C = w.shape
-            # ... (rest of forward, ensure C is correctly derived or passed if needed) ...
-            torch.ops.wind_backstepping.forward(w, q, k, v, a, b, y, s, sa) # Pass Python a & b to C++ z & a implicitly
-            # Save tensors needed for backward, including the original forward inputs if used in backward calc
-            ctx.save_for_backward(w, q, k, v, a, b, s, sa) # Save original inputs if needed by backward kernel via C++ wrapper
-            return y
+            # --- Allocate output tensors BEFORE calling C++ op ---
+            # Assuming y has the same shape as q, k, v. Adjust if different.
+            y = torch.empty_like(q)
+            # Determine correct shapes for s and sa based on CUDA kernel logic
+            # s shape seems to be (B, H, T//CHUNK_LEN, C, C) - VERIFY THIS!
+            s = torch.empty(B, H, T // CHUNK_LEN, C, C, dtype=torch.float32, device=w.device)
+            # sa shape seems to be (B, T, H, C) - VERIFY THIS!
+            sa = torch.empty(B, T, H, C, dtype=torch.float32, device=w.device)
+            # --- Allocation done ---
+
+            # Ensure contiguous inputs (outputs are already contiguous from empty_like/empty)
+            # Note: Inputs to .apply() should ideally be made contiguous *before* calling apply if needed.
+            # Adding checks here just in case.
+            assert all(i.is_contiguous() for i in [w, q, k, v, a, b])
+            assert w.dtype == torch.bfloat16 # Assuming all relevant inputs are bf16
+
+            # Call C++ op: Pass Python forward inputs (w,q,k,v,a,b) and output buffers (y,s,sa)
+            # The C++ wrapper will internally map Python 'a' to C++ 'z', Python 'b' to C++ 'a'
+            torch.ops.wind_backstepping.forward(w, q, k, v, a, b, y, s, sa)
+
+            # Save tensors needed for backward.
+            # CRITICAL: Save the ORIGINAL FORWARD INPUTS (a, b) if the backward kernel needs them.
+            # Also save intermediate results s, sa if the backward kernel uses them.
+            # Also save tensors whose gradients are needed (w, q, k, v).
+            ctx.save_for_backward(w, q, k, v, a, b, s, sa) # Saving a, b, s, sa
+
+            return y # Return the computed output y
 
         @staticmethod
         def backward(ctx, dy):
