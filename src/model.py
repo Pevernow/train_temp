@@ -23,10 +23,12 @@ def __nop(ob):
 
 
 MyModule = nn.Module
-MyFunction = __nop
-if os.environ["RWKV_JIT_ON"] == "1":
-    MyModule = torch.jit.ScriptModule
-    MyFunction = torch.jit.script_method
+# MyFunction = __nop # Keep functions as plain Python functions
+# OR explicitly:
+def MyFunction(fn): return fn # Decorator does nothing
+# if os.environ["RWKV_JIT_ON"] == "1": # Comment out or remove JIT logic
+#     MyModule = torch.jit.ScriptModule
+#     MyFunction = torch.jit.script_method
 
 
 ########################################################################################################
