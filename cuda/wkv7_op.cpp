@@ -19,7 +19,7 @@ void backward(torch::Tensor &w, torch::Tensor &q, torch::Tensor &k, torch::Tenso
 }
 
 TORCH_LIBRARY(wind_backstepping, m) {
-    m.def("forward(Tensor w, Tensor q, Tensor k, Tensor v, Tensor z, Tensor a, Tensor b, Tensor(a!) y, Tensor(b!) s, Tensor(c!) sa, int n_steps) -> ()");
+    m.def("forward(Tensor w, Tensor q, Tensor k, Tensor v, Tensor z, Tensor a, Tensor(a!) y, Tensor(b!) s, Tensor(c!) sa, int n_steps) -> ()");
     m.def("backward(Tensor w, Tensor q, Tensor k, Tensor v, Tensor z, Tensor a, Tensor dy, Tensor s, Tensor sa, Tensor(a!) dw, Tensor(b!) dq, Tensor(c!) dk, Tensor(d!) dv, Tensor(e!) dz, Tensor(f!) da) -> ()");
 }
 
