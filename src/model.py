@@ -45,7 +45,7 @@ if 'x070' in os.environ["RWKV_MY_TESTING"]:
 
     class WindBackstepping(torch.autograd.Function):
         @staticmethod
-        def forward(ctx, w,q,k,v,z,b):
+        def forward(ctx, w,q,k,v,z,b,n_steps):
             B,T,H,C = w.shape 
             assert T%CHUNK_LEN == 0
             assert all(i.dtype==torch.bfloat16 for i in [w,q,k,v,z,b])
@@ -53,8 +53,9 @@ if 'x070' in os.environ["RWKV_MY_TESTING"]:
             y = torch.empty_like(v)
             s = torch.empty(B,H,T//CHUNK_LEN,C,C, dtype=torch.float32,device=w.device)
             sa = torch.empty(B,T,H,C, dtype=torch.float32,device=w.device)
-            torch.ops.wind_backstepping.forward(w,q,k,v,z,b, y,s,sa)
+            torch.ops.wind_backstepping.forward(w,q,k,v,z,b, y,s,sa, n_steps)
             ctx.save_for_backward(w,q,k,v,z,b,s,sa)
+            ctx.n_steps = n_steps
             return y
         @staticmethod
         def backward(ctx, dy):
@@ -62,13 +63,14 @@ if 'x070' in os.environ["RWKV_MY_TESTING"]:
             assert all(i.is_contiguous() for i in [dy])
             w,q,k,v,z,b,s,sa = ctx.saved_tensors
             dw,dq,dk,dv,dz,db = [torch.empty_like(x) for x in [w,q,k,v,z,b]]
+            # backward 目前未加 n_steps 参数，如需支持递归梯度累积可进一步扩展
             torch.ops.wind_backstepping.backward(w,q,k,v,z,b, dy,s,sa, dw,dq,dk,dv,dz,db)
-            return dw,dq,dk,dv,dz,db
+            return dw,dq,dk,dv,dz,db,None
 
-    def RUN_CUDA_RWKV7g(q,w,k,v,a,b):
+    def RUN_CUDA_RWKV7g(q,w,k,v,a,b,n_steps=1):
         B,T,HC = q.shape
         q,w,k,v,a,b = [i.view(B,T,HC//64,64) for i in [q,w,k,v,a,b]]
-        return WindBackstepping.apply(w,q,k,v,a,b).view(B,T,HC)
+        return WindBackstepping.apply(w,q,k,v,a,b,n_steps).view(B,T,HC)
 
 ########################################################################################################
 
