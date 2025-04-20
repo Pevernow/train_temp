@@ -385,7 +385,7 @@ class RWKV(pl.LightningModule):
                 # Pass current step's input and v_first state
                 if args.grad_cp == 1:
                      # Use use_reentrant=False for newer PyTorch versions with DDP
-                    current_input, current_v_first = deepspeed.checkpointing.checkpoint(block, current_input, current_v_first, use_reentrant=False)
+                    current_input, current_v_first = deepspeed.checkpointing.checkpoint(block, current_input, current_v_first)
                 else:
                     current_input, current_v_first = block(current_input, current_v_first)
 
