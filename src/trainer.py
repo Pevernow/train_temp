@@ -143,7 +143,7 @@ class train_callback(pl.Callback):
                     my_save(
                         args, trainer,
                         to_save_dict,
-                        f"{args.proj_dir}/rwkv-final.pth",
+                        f"{args.proj_dir}/rwkv-{args.epoch_begin + trainer.current_epoch}.pth",
                     )
                 except Exception as e:
                     print('Error\n\n', e, '\n\n')
