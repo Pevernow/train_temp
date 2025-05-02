@@ -26,8 +26,8 @@ PROJ_DIR="out/L"$N_LAYER"-D"$N_EMBD"-"$MODEL_TYPE # set output folder
 # Finetuning => use very small LR, such as 1e-5
 #
 M_BSZ="16" # takes ~9G VRAM here => reduce this to save VRAM, increase this for faster speed
-LR_INIT="1e-5"
-LR_FINAL="1e-6"
+LR_INIT="6e-5"
+LR_FINAL="6e-6"
 GRAD_CP=1 # 1 => slower, save VRAM; 0 => faster, more VRAM
 EPOCH_SAVE=10 # save every 10 "miniepochs" (1 miniepoch = 40320 * ctx_len tokens) => decrease if your GPU is weak
 #
@@ -43,7 +43,7 @@ DS_BUCKET_MB=2 # set to 2 for consumer GPUs, set to 200 for A100 / H100 (affects
 #
 python train.py --load_model "0" --wandb "Test" --proj_dir $PROJ_DIR --my_testing $MODEL_TYPE \
  --ctx_len $CTX_LEN --train_stage 3 --epoch_count 999999 --epoch_begin 0 \
- --data_file "train" --my_exit_tokens 2149624 --magic_prime 4157 \
+ --data_file "train" --my_exit_tokens 3108032 --magic_prime 6053 \
  --num_nodes $N_NODE --micro_bsz $M_BSZ --n_layer $N_LAYER --n_embd $N_EMBD \
  --lr_init $LR_INIT --lr_final $LR_FINAL --warmup_steps 10 --beta1 0.9 --beta2 0.99 --adam_eps 1e-18 --data_type "binidx" --vocab_size 0 \
  --weight_decay 0.001 --epoch_save $EPOCH_SAVE --head_size 64 \
