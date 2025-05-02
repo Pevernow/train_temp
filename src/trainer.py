@@ -39,7 +39,7 @@ class train_callback(pl.Callback):
                     my_save(
                         args, trainer,
                         pl_module.state_dict(),
-                        f"{args.proj_dir}/rwkv-{args.epoch_begin + args.epoch_count - 1}.pth",
+                        f"{args.proj_dir}/rwkv-final.pth",
                     )
                     exit(0)
         if trainer.global_step < w_step:
@@ -114,7 +114,7 @@ class train_callback(pl.Callback):
                     my_save(
                         args, trainer,
                         to_save_dict,
-                        f"{args.proj_dir}/rwkv-{args.epoch_begin + args.epoch_count - 1}.pth",
+                        f"{args.proj_dir}/rwkv-final.pth",
                     )
                 
 
@@ -143,7 +143,7 @@ class train_callback(pl.Callback):
                     my_save(
                         args, trainer,
                         to_save_dict,
-                        f"{args.proj_dir}/rwkv-{args.epoch_begin + trainer.current_epoch}.pth",
+                        f"{args.proj_dir}/rwkv-final.pth",
                     )
                 except Exception as e:
                     print('Error\n\n', e, '\n\n')
