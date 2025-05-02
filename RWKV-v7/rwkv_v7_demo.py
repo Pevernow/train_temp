@@ -22,7 +22,7 @@ args = types.SimpleNamespace()
 
 # model download: https://huggingface.co/BlinkDL/rwkv-7-world
 
-MODEL_PATH = "..\\rwkv-0.pth"
+MODEL_PATH = "..\\rwkv-01.pth"
 
 # for 0.1B
 args.n_layer = 12
@@ -395,7 +395,7 @@ class RWKV(nn.Module):
 ########################################################################################################
 # RWKV Inference
 ########################################################################################################
-'''
+
 
 model_params = torch.load(MODEL_PATH, map_location="cpu")
 
@@ -410,7 +410,7 @@ with torch.no_grad():
     input = tokenizer.encode(prompt)
     print(f'\nInput:\n{input}')
 
-    out = model.forward(torch.tensor(input).reshape(1,-1).cuda(), recursive_depth=5)
+    out = model.forward(torch.tensor(input).reshape(1,-1).cuda(), recursive_depth=1)
     print(f'\nOutput:\n{out}')
 
     # logits of the last token => prediction for the next token    
@@ -437,14 +437,13 @@ with torch.no_grad():
     xsum = 0
     xcnt = 0
     xacc = 0
-    todo = [] # uncomment to run all
     for d in todo:
         src = [0] + tokenizer.encode(d[0])
         dst = tokenizer.encode(d[1])
 
         logits = 0
         correct = True
-        out = model.forward(torch.tensor(src+dst).reshape(1,-1).cuda(), recursive_depth=5)
+        out = model.forward(torch.tensor(src+dst).reshape(1,-1).cuda(), recursive_depth=3)
         for i in range(len(dst)):
             ooo = out[0,len(src)-1+i].float()
             probs = F.softmax(ooo, dim=-1)
@@ -457,4 +456,3 @@ with torch.no_grad():
         xacc += 1 if correct else 0
         if xcnt % 100 == 0 or xcnt == len(todo):
             print(xcnt, 'ppl', round(math.exp(-xsum / xcnt), 2), 'acc', round(xacc/xcnt*100, 2))
-'''

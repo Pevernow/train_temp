@@ -19,7 +19,7 @@ from rwkv_v7_demo import RWKV, RWKV_TOKENIZER, args as model_args # Import args 
 ########################################################################################################
 
 # Use user's model path
-MODEL_NAME = "../rwkv-3.pth"
+MODEL_NAME = "../rwkv-4.pth"
 print(f"Loading model - {MODEL_NAME}")
 
 # Configure args for the custom model (adjust based on rwkv_v7_demo.py if needed)
@@ -42,7 +42,7 @@ model = model.to(model_args.DTYPE).cuda().eval()
 # Use the custom tokenizer
 tokenizer = RWKV_TOKENIZER("rwkv_vocab_v20230424.txt")
 
-RECURSIVE_DEPTH = 10 # Set the desired recursive depth
+RECURSIVE_DEPTH = 3 # Set the desired recursive depth
 print(f"Using recursive depth: {RECURSIVE_DEPTH}")
 
 ########################################################################################################
