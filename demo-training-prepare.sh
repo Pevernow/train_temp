@@ -26,7 +26,7 @@ PROJ_DIR="out/L"$N_LAYER"-D"$N_EMBD"-"$MODEL_TYPE # set output folder
 # use https://www.dcode.fr/prime-numbers-search
 #
 python train.py --wandb "" --proj_dir $PROJ_DIR \
- --data_file "train" --data_type "binidx" --vocab_size 0 --my_testing $MODEL_TYPE \
+ --data_file "train" --data_type "binidx" --vocab_size 21 --my_testing $MODEL_TYPE \
  --ctx_len $CTX_LEN --train_stage 1 --epoch_count 1 --epoch_begin 0 \
  --epoch_save 1 --weight_decay 0 --head_size 64 \
  --num_nodes 1 --micro_bsz 1 --n_layer $N_LAYER --n_embd $N_EMBD --my_exit_tokens 3108032 --magic_prime 6053 \
