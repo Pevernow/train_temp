@@ -39,8 +39,8 @@ def parse_args():
     parser.add_argument('--strategy', type=str, default='cuda bf16', help='Pytorch Lightning strategy (e.g., cuda bf16, cuda fp16, deepspeed_stage_3)') # Updated help string
     parser.add_argument('--precision', type=str, default='bf16', help='Precision (bf16, fp16, fp32)') # Updated default precision
     parser.add_argument('--max_tokens', type=int, default=2048, help='Maximum number of tokens to generate for the output grid')
-    parser.add_argument('--temperature', type=float, default=0.8, help='Sampling temperature')
-    parser.add_argument('--top_p', type=float, default=0.8, help='Top-p sampling probability')
+    parser.add_argument('--temperature', type=float, default=0.1, help='Sampling temperature')
+    parser.add_argument('--top_p', type=float, default=0.1, help='Top-p sampling probability')
     # Add other relevant RWKV model args if needed (n_layer, n_embd, etc.)
     # These might be inferred from the checkpoint, but explicit args can be useful
     parser.add_argument('--n_layer', type=int, help='Number of layers (optional, try to infer from model)')
@@ -78,14 +78,16 @@ def format_arc_prompt(task_json):
         output_tag_start = "<output>"
         output_tag_end = "</output>"
 
-        output_start_index = text_content.find(output_tag_start)
+        # Find last occurrence of output_tag_start
+        output_start_index = text_content.rfind(output_tag_start)
         if output_start_index == -1:
             print(f"Warning: Skipping task because '{output_tag_start}' tag not found in 'text': {task_json}")
             return None, None
 
-        # Prompt is everything up to and including the <output> tag
+        # Prompt is everything up to and including the last <output> tag
         prompt = text_content[:output_start_index + len(output_tag_start)]
 
+        # Find matching output_tag_end after the last output_tag_start
         output_end_index = text_content.find(output_tag_end, output_start_index)
         if output_end_index == -1:
             print(f"Warning: Skipping task because '{output_tag_end}' tag not found after '{output_tag_start}' in 'text': {task_json}")
@@ -110,7 +112,7 @@ def parse_generated_output(generated_text):
         # Simple example: assume output is everything after <output> until </task>
         start_tag = "<output>"
         end_tag = "</output>"
-        start_index = generated_text.find(start_tag)
+        start_index = generated_text.rfind(start_tag)
         if start_index == -1:
             return None # Or handle cases where the tag isn't found
         start_index += len(start_tag)
