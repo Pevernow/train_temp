@@ -48,16 +48,7 @@ if 'x070' in os.environ["RWKV_MY_TESTING"]:
     CHUNK_LEN = 16
 
     flags = ['-res-usage', f'-D_C_={HEAD_SIZE}', f"-D_CHUNK_LEN_={CHUNK_LEN}", "--use_fast_math", "-O3", "--extra-device-vectorization"] # Removed -Xptxas -O3
-    try:
-        # Check if already loaded to avoid recompilation in interactive sessions
-        if 'wind_backstepping' not in torch.ops.loaded_libraries:
-             load(name="wind_backstepping", sources=[f'cuda/wkv7_cuda.cu', 'cuda/wkv7_op.cpp'], is_python_module=False, verbose=True, extra_cuda_cflags=flags)
-        else:
-            print("CUDA kernel 'wind_backstepping' already loaded.")
-    except Exception as e:
-        print(f"Failed to load CUDA kernel 'wind_backstepping': {e}")
-        # Define a placeholder or raise an error if CUDA is essential
-        raise RuntimeError("CUDA kernel loading failed, cannot proceed.") from e
+    load(name="wind_backstepping", sources=[f'cuda/wkv7_cuda.cu', 'cuda/wkv7_op.cpp'], is_python_module=False, verbose=True, extra_cuda_cflags=flags)
 
 
     class WindBackstepping(torch.autograd.Function):
@@ -248,16 +239,7 @@ class RWKV_Tmix_x070(MyModule):
         kk = F.normalize(kk.view(B,T,H,-1), dim=-1, p=2.0).view(B,T,C)
         k = k * (1 + (a-1) * self.k_a)
 
-        # Pass self.head_size when calling RUN_CUDA_RWKV7g
-        # Make sure RUN_CUDA_RWKV7g is defined if using the CUDA kernel
-        if 'x070' in self.my_testing and 'wind_backstepping' in torch.ops.loaded_libraries:
-            x = RUN_CUDA_RWKV7g(r, w, k, v, -kk, kk*a, self.head_size) # Pass head_size here
-        else:
-            # Placeholder or alternative implementation if CUDA kernel is not used/loaded
-            # This part needs a CPU/non-CUDA equivalent of the WKV calculation if needed
-            # For now, let's assume CUDA is required and loaded. If not, this will error.
-            # You might need to implement the WKV logic from older RWKV versions here as a fallback.
-             raise NotImplementedError("CUDA kernel required but not loaded/used. Add a non-CUDA WKV implementation.")
+        x = RUN_CUDA_RWKV7g(r, w, k, v, -kk, kk*a, self.head_size) # Pass head_size here
 
 
         # Make sure C used here is consistent (it comes from x.size() initially)
