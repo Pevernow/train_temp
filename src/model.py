@@ -762,11 +762,11 @@ class RWKV(pl.LightningModule):
         try:
             # Ensure batch_parts is gatherable (e.g., a tensor or dict of tensors)
             if batch_parts is not None:
-                 all_gathered_parts = self.all_gather(batch_parts)
-                 if self.trainer.is_global_zero:
-                     # Process the gathered parts, e.g., log average loss from all GPUs
-                     # Example: self.trainer.my_loss_all = all_gathered_parts
-                     pass # Placeholder for potential processing
+                all_gathered_parts = self.all_gather(batch_parts)
+                if self.trainer.is_global_zero:
+                    # Assign the gathered losses (or batch parts) to the trainer attribute
+                    self.trainer.my_loss_all = all_gathered_parts
+                    # You might add other processing here if needed later
             # else:
             #      print("Warning: training_step_end received None batch_parts.")
         except Exception as e:
