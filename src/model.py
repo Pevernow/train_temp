@@ -37,12 +37,16 @@ def MyFunction(fn): return fn # Decorator does nothing
 
 from torch.utils.cpp_extension import load
 
-HEAD_SIZE = int(os.environ["RWKV_HEAD_SIZE"])
+try:
+    HEAD_SIZE = int(os.environ["RWKV_HEAD_SIZE"])
+except KeyError:
+    print("RWKV_HEAD_SIZE environment variable not set, using default value 64.")
+    HEAD_SIZE = 64 # Default value if environment variable is not set
 
 if 'x070' in os.environ["RWKV_MY_TESTING"]:
     CHUNK_LEN = 16
 
-    flags = ['-res-usage', f'-D_C_={HEAD_SIZE}', f"-D_CHUNK_LEN_={CHUNK_LEN}", "--use_fast_math", "-O3", "-Xptxas -O3", "--extra-device-vectorization"]
+    flags = ['-res-usage', f'-D_C_={HEAD_SIZE}', f"-D_CHUNK_LEN_={CHUNK_LEN}", "--use_fast_math", "-O3", "--extra-device-vectorization"] # Removed -Xptxas -O3
     load(name="wind_backstepping", sources=[f'cuda/wkv7_cuda.cu', 'cuda/wkv7_op.cpp'], is_python_module=False, verbose=True, extra_cuda_cflags=flags)
 
     class WindBackstepping(torch.autograd.Function):
@@ -287,10 +291,25 @@ class Block(nn.Module):
 
         if self.layer_id == 0:
             self.ln0 = nn.LayerNorm(args.n_embd)
+            if args.my_pos_emb > 0:
+                self.pos_emb_x = nn.Parameter(torch.zeros((1,args.my_pos_emb,args.n_embd)))
+                self.pos_emb_y = nn.Parameter(torch.zeros((args.my_pos_emb,1,args.n_embd)))
 
-        self.att = RWKV_Tmix_x070(args, layer_id)
+        if self.layer_id == 0 and self.args.pre_ffn > 0:
+            self.ffnPre = RWKV_CMix_x070(args, 0)
+        else:
+            self.att = RWKV_Tmix_x070(args, layer_id)
+
         self.ffn = RWKV_CMix_x070(args, layer_id)
-        
+
+        if args.tiny_att_dim > 0 and self.layer_id == args.tiny_att_layer:
+            self.tiny_ln = nn.LayerNorm(args.n_embd)
+            self.tiny_att = RWKV_Tmix_x070(args, 0) # head_size is handled internally now
+
+        if args.dropout > 0:
+            self.drop0 = nn.Dropout(p = args.dropout)
+            self.drop1 = nn.Dropout(p = args.dropout)
+
     def forward(self, x, v_first):
         if self.layer_id == 0:
             x = self.ln0(x)
@@ -323,10 +342,16 @@ class RWKV(pl.LightningModule):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        if not hasattr(args, 'dim_att'):
-            args.dim_att = args.n_embd
-        if not hasattr(args, 'dim_ffn'):
-            args.dim_ffn = int((args.n_embd * 3.5) // 32 * 32) # default = 3.5x emb size            
+        if not hasattr(args, 'dim_att'): args.dim_att = args.n_embd
+        if not hasattr(args, 'dim_ffn'): args.dim_ffn = args.n_embd * 4
+        if not hasattr(args, 'tiny_att_layer'): args.tiny_att_layer = -1
+        if not hasattr(args, 'tiny_att_dim'): args.tiny_att_dim = -1
+        if not hasattr(args, 'tiny_head_size'): args.tiny_head_size = args.head_size # Default tiny_head_size to head_size
+        if not hasattr(args, 'dropout'): args.dropout = 0
+        if not hasattr(args, 'head_size_divisor'): args.head_size_divisor = 8
+        if not hasattr(args, 'my_pos_emb'): args.my_pos_emb = 0
+        if not hasattr(args, 'pre_ffn'): args.pre_ffn = 0
+
         assert args.n_embd % 32 == 0
         assert args.dim_att % 32 == 0
         assert args.dim_ffn % 32 == 0
@@ -386,7 +411,7 @@ class RWKV(pl.LightningModule):
             return cfg.get("offload_optimizer") or cfg.get("offload_param")
         return False
 
-    def forward(self, idx, recursive_depth=None):
+    def forward(self, idx, recursive_depth=5):
         args = self.args
         B, T = idx.size()
         assert T <= args.ctx_len, "Cannot forward, model ctx_len is exhausted."
