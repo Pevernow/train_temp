@@ -39,8 +39,8 @@ def parse_args():
     parser.add_argument('--strategy', type=str, default='cuda bf16', help='Pytorch Lightning strategy (e.g., cuda bf16, cuda fp16, deepspeed_stage_3)') # Updated help string
     parser.add_argument('--precision', type=str, default='bf16', help='Precision (bf16, fp16, fp32)') # Updated default precision
     parser.add_argument('--max_tokens', type=int, default=2048, help='Maximum number of tokens to generate for the output grid')
-    parser.add_argument('--temperature', type=float, default=0.1, help='Sampling temperature')
-    parser.add_argument('--top_p', type=float, default=0.1, help='Top-p sampling probability')
+    parser.add_argument('--temperature', type=float, default=0.5, help='Sampling temperature')
+    parser.add_argument('--top_p', type=float, default=0.5, help='Top-p sampling probability')
     # Add other relevant RWKV model args if needed (n_layer, n_embd, etc.)
     # These might be inferred from the checkpoint, but explicit args can be useful
     parser.add_argument('--n_layer', type=int, help='Number of layers (optional, try to infer from model)')
@@ -221,7 +221,7 @@ def load_rwkv_model(args):
     model_args.vocab_size = args.vocab_size # Use the provided/default vocab_size
     model_args.head_size = 64 # Assuming RWKV-7 default, adjust if needed
     model_args.head_size_a = model_args.head_size # Usually same as head_size
-    model_args.ctx_len = 4096 # Common context length, adjust if your model differs
+    model_args.ctx_len = 8192 # Common context length, adjust if your model differs
     model_args.dropout = 0 # No dropout during evaluation
     model_args.my_pos_emb = 0 # Common setting
     model_args.pre_ffn = 0 # Common setting
@@ -353,7 +353,7 @@ def generate_output(model, tokenizer, prompt, args):
             # if token_item == tokenizer.eos_token_id:
             #    break
             #print(i)
-
+        print(output_tokens)
         generated_sequence = prompt_tokens + output_tokens
         generated_text = tokenizer.decode(generated_sequence)
         # print(f"Generated text length: {len(generated_text)}")
