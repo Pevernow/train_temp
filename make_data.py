@@ -120,6 +120,13 @@ data = MMapIndexedDataset(OUT_NAME)
 data_len = len(data)
 data_size = len(data._bin_buffer) // data._index._dtype_size
 
+max_tokens = 0
+for idx in range(data_len):
+    ptr, size = data._index[idx]
+    if size > max_tokens:
+        max_tokens = size
+print(f"### Max tokens in one line: {max_tokens-1}")  # subtract 1 for end_of_doc token
+
 TODO = [0, data_len - 1]
 PREVIEW_LIMIT = 100
 for idx in TODO:

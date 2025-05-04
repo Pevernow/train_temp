@@ -31,6 +31,7 @@ if __name__ == "__main__":
     parser.add_argument("--epoch_save", default=5, type=int)  # save the model every [epoch_save] "epochs"
 
     parser.add_argument("--micro_bsz", default=12, type=int)  # micro batch size (batch size per GPU)
+    parser.add_argument("--accumulate_grad_batches", default=1, type=int) # gradient accumulation steps
     parser.add_argument("--n_layer", default=6, type=int)
     parser.add_argument("--n_embd", default=512, type=int)
     parser.add_argument("--dim_att", default=0, type=int)
@@ -90,6 +91,7 @@ if __name__ == "__main__":
     args.max_epochs = -1  # continue forever
     args.betas = (args.beta1, args.beta2)
     args.real_bsz = int(args.num_nodes) * int(args.devices) * args.micro_bsz
+
     os.environ["RWKV_MY_TESTING"] = args.my_testing
     os.environ["RWKV_CTXLEN"] = str(args.ctx_len)
     os.environ["RWKV_HEAD_SIZE"] = str(args.head_size)
