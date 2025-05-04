@@ -81,16 +81,16 @@ class TRIE_TOKENIZER():
         return tokens
 
     def decodeBytes(self, tokens):
-        return b''.join(map(lambda i: self.idx2token[i], tokens))
+        # Safely get token bytes, replace with \ufffd byte sequence if key is not found
+        decoded_bytes = [self.idx2token.get(i, b'\xef\xbf\xbd') for i in tokens]
+        return b''.join(decoded_bytes)
 
     def encode(self, src):
         return self.encodeBytes(src.encode("utf-8"))
 
     def decode(self, tokens):
-        try:
-            return self.decodeBytes(tokens).decode('utf-8')
-        except:
-            return '\ufffd' # bad utf-8
+        # Use errors='replace' to handle partial exceptions and replace with \ufffd
+        return self.decodeBytes(tokens).decode('utf-8', errors='replace')
 
     def printTokens(self, tokens):
         for i in tokens:
