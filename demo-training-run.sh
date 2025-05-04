@@ -42,7 +42,7 @@ DS_BUCKET_MB=2 # set to 2 for consumer GPUs, set to 200 for A100 / H100 (affects
 #
 python train.py --load_model "0" --wandb "Test" --proj_dir $PROJ_DIR --my_testing $MODEL_TYPE \
  --train_stage 3 --epoch_count 999999 --epoch_begin 0 \
- --data_file "train" --my_exit_tokens 31080320 --magic_prime 1619 --ctx_len 19000 \
+ --data_file "train" --my_exit_tokens 31080320 --magic_prime 1619 --ctx_len 19008 \
  --num_nodes $N_NODE --micro_bsz $M_BSZ --n_layer $N_LAYER --n_embd $N_EMBD \
  --lr_init $LR_INIT --lr_final $LR_FINAL --warmup_steps 10 --beta1 0.9 --beta2 0.99 --adam_eps 1e-18 --data_type "binidx" --vocab_size 22 \
  --weight_decay 0.001 --epoch_save $EPOCH_SAVE --head_size 64 \
