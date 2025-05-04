@@ -104,8 +104,8 @@ if __name__ == "__main__":
     if not os.path.exists(args.proj_dir):
         os.makedirs(args.proj_dir)
 
-    args.epoch_count = args.magic_prime // 120
-    args.epoch_steps = 120 // args.real_bsz
+    args.epoch_count = args.magic_prime // 720
+    args.epoch_steps = 720 // args.real_bsz
     #assert args.epoch_steps * args.real_bsz == 120
 
     if args.train_stage >= 2:  # find latest saved model
